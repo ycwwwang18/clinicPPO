@@ -139,7 +139,7 @@ def plot_rewards(rewards,cfg, tag='train'):
 
 if __name__ == '__main__':
     # 获取参数
-    cfg = Config()
+    cfg = Config(path='./config/05081341.json')
     # 训练
     env, agent = env_agent_config(cfg)
     best_agent, res_dic = train(cfg, env, agent)
