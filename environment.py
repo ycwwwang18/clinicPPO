@@ -209,7 +209,8 @@ class Environment:
                        'RF_a': RF_a,
                        'RF_e': RF_e,
                        'U_avg': U_avg,
-                       'work_load': cal.est_work_load
+                       'work_load': cal.est_work_load,
+                       'total_waiting_time': cal.total_waiting_time
                        }
         return feature_vector, observation
 

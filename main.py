@@ -16,6 +16,7 @@ def train(cfg, env, agent):
     print('开始训练！')
     rewards = []  # the reward of each episode
     steps = []
+    total_waiting_times = []
     best_ep_reward = 0  # the max reward obtained so far
     output_agent = None
 
@@ -24,7 +25,7 @@ def train(cfg, env, agent):
         ep_step = 0  # the action step of this eps
         feature_vector, state = env.reset()
         done = False
-
+        final_state = {}
         while not done:
             ep_step += 1
             action = agent.sample_action(feature_vector)
@@ -36,8 +37,10 @@ def train(cfg, env, agent):
             feature_vector = feature_vector_
             agent.update()
             ep_reward += reward
+            final_state = state_
 
         # evaluate the model during training
+        '''
         if (i_ep+1) % cfg.eval_per_episode == 0:
             sum_eval_reward = 0
             for _ in range(cfg.eval_eps):
@@ -59,22 +62,29 @@ def train(cfg, env, agent):
                 best_ep_reward = mean_eval_reward
                 output_agent = copy.deepcopy(agent)  # snapshot of the best performance of the agent
             print(f'回合：{i_ep+1}/{cfg.train_eps}，奖励：{ep_reward:.2f}，评估奖励：{mean_eval_reward:.2f}，最佳评估奖励：{best_ep_reward:.2f}')
+        '''
 
+        print(
+            f"回合：{i_ep + 1}/{cfg.train_eps}，奖励：{ep_reward:.2f}，等待时间：{final_state['total_waiting_time']:.2f}")
+        total_waiting_times.append(final_state['total_waiting_time'])
         steps.append(ep_step)
         rewards.append(ep_reward)
+
     print('完成训练！')
-    return output_agent, {'rewards':rewards}
+    return output_agent, {'rewards':rewards, 'waiting_times':total_waiting_times}
 
 
 def test(cfg, env, agent):
     print('开始测试！')
     rewards = []
     steps = []
+    total_waiting_times = []
     for i_ep in range(cfg.test_eps):
         ep_reward = 0
         ep_step = 0
         feature, state = env.reset()
         done = False
+        final_state = {}
         while not done:
             ep_step += 1
             action = agent.predict_action(feature)
@@ -84,11 +94,15 @@ def test(cfg, env, agent):
             state = state_
             feature = feature_
             ep_reward += reward
+            final_state = state_
+
+        total_waiting_times.append(final_state['total_waiting_time'])
         steps.append(ep_step)
         rewards.append(ep_reward)
-        print(f'回合：{i_ep+1}/{cfg.test_eps}，奖励：{ep_reward:.2f}')
+        print(f"回合：{i_ep+1}/{cfg.test_eps}，奖励：{ep_reward:.2f}，等待时间：{final_state['total_waiting_time']:.2f}")
+
     print('完成测试！')
-    return {'rewards': rewards}
+    return {'rewards': rewards, 'waiting_times': total_waiting_times}
 
 
 def all_seed(env, seed=1):
@@ -125,14 +139,15 @@ def smooth(data, weight=0.9):
     return smoothed
 
 
-def plot_rewards(rewards,cfg, tag='train'):
+def plot_rewards(rewards, waiting_time, cfg, tag='train'):
     """画图"""
     sns.set()
     plt.figure()  # 创建一个图形实例，方便同时多画几个图
     plt.title(f"{tag}ing curve on {cfg.device} of {cfg.algo_name} for {cfg.env_name}")
     plt.xlabel('episodes')
     plt.plot(rewards, label='rewards')
-    plt.plot(smooth(rewards), label='smoothed')
+    plt.plot(waiting_time, label='waiting time')
+    plt.plot(smooth(waiting_time), label='smoothed waiting time')
     plt.legend()
     plt.show()
 
@@ -142,10 +157,10 @@ if __name__ == '__main__':
     cfg = Config(path='./config/05081341.json')
     # 训练
     env, agent = env_agent_config(cfg)
-    best_agent, res_dic = train(cfg, env, agent)
+    best_agent, res_dic = train(cfg, env, agent)  # TODO 不一定是best
 
-    plot_rewards(res_dic['rewards'], cfg, tag='train')
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, tag='train')
 
     # 测试
-    res_dic = test(cfg, env, best_agent)
-    plot_rewards(res_dic['rewards'], cfg, tag='test')
+    res_dic = test(cfg, env, agent)  # TODO best_agent替换为agent
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, tag='test')

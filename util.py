@@ -11,6 +11,7 @@ class Cal:
         self.remain_service = self.getRemainService()
         self.completion_rate = self.observeCompleteness()
         self.cur_wait_time = self.getWaitTime()
+        self.total_waiting_time = sum(self.cur_wait_time)
         self.que_len = self.getQueueLen()
         self.que_time = self.getQueueTime()
         self.remain_patient_num = self.getRemainPatientNum()
