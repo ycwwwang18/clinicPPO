@@ -98,7 +98,7 @@ class Cal:
         elif self.patients[patient_id].status == 'servicing' or self.patients[patient_id].status == 'requesting' or self.patients[patient_id].status == 'not_arrive':
             future_wait_time = 0
             for server_idLabel in remain_service:
-                future_wait_time += self.est_work_load[server_idLabel]  # / self.remain_patient_num[server_idLabel]
+                future_wait_time += self.est_work_load[server_idLabel] / 2  # / self.remain_patient_num[server_idLabel]
             return cur_wait_time + future_wait_time
 
     def getEstWaitTime(self):
