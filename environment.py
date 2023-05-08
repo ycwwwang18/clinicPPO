@@ -3,6 +3,7 @@ import simpy
 import numpy as np
 import pandas as pd
 from clinicElements import Server, Patient
+from util import Cal
 
 
 class Environment:
@@ -172,120 +173,6 @@ class Environment:
         else:
             return -1
 
-    def getRemainService(self):
-        """get the remaining services of all patients"""
-        completeness = []
-        for patient in self.patients:
-            server = []
-            for key, value in patient.service_completeness.items():
-                if value == 1:
-                    server.append(key)
-            completeness.append(server)
-        return completeness
-
-    def observeCompleteness(self):
-        """return all patients' completeness rate"""
-        completeness_rate_list = []
-        for patient in self.patients:
-            incomplete_num = sum(list(patient.service_completeness.values()))
-            service_num = sum(list(patient.service_completeness_reset.values()))
-            completeness_rate = 1 - incomplete_num / service_num
-            completeness_rate_list.append(completeness_rate)
-        return completeness_rate_list
-
-    def getWaitTime(self):
-        """return current wait time of all patients"""
-        wait_time_list = []
-        for patient in self.patients:
-            if patient.status == 'waiting':
-                patient.wait_time = self.env.now - patient.service_time - patient.arrive_time
-            elif patient.status == 'servicing':
-                patient.wait_time = patient.service_start_time - patient.service_time - patient.arrive_time
-            wait_time_list.append(patient.wait_time)
-        return wait_time_list
-
-    def getQueueLen(self):
-        """return the queue length of all servers"""
-        queue_len = {}
-        for server_id, resource in self.resources.items():
-            queue_len[server_id] = len(resource.queue)
-        return queue_len
-
-    def getAvgServiceTime(self):
-        """return the average service time of all servers"""
-        return self.avg_service_time
-
-    def getServerCapacity(self):
-        """return the capacity of all servers"""
-        return self.server_capacity
-
-    def getRemainPatientNum(self,remain_service):
-        """return the number of patients who still need service from the servers"""
-        # remain_service = np.array(remain_service, dtype=object)
-        # remain_service = list(remain_service.flatten())
-        remain_service = [item for lis in remain_service for item in lis]  # 修复将二维list转为一维list的错误
-        remain_patient_num = {}
-        for server_id in self.resources.keys():
-            remain_patient_num[server_id] = remain_service.count(server_id)
-        return remain_patient_num
-
-    def getEstWorkLoad(self, remain_service):
-        """return the estimated work load of all servers"""
-        est_work_load = {}
-        remain_patient_num = self.getRemainPatientNum(remain_service)
-        for server_idLabel in self.resources.keys():
-            est_work_load[server_idLabel] = remain_patient_num[server_idLabel] * self.avg_service_time[server_idLabel] / self.server_capacity[server_idLabel]
-        return est_work_load
-
-    def getPatientWaitTimeEst(self, patient_id, cur_wait_time, remain_service, queue_len, est_work_load):
-        """return the estimated waiting time of the given patient"""
-        if not remain_service:
-            return cur_wait_time
-        elif self.patients[patient_id].status == 'waiting':
-            server_id = self.patients[patient_id].wait_server
-            cur_server_wait_time = queue_len[server_id] * self.avg_service_time[server_id] / self.server_capacity[server_id]
-            future_wait_time = 0
-            for server_idLabel in remain_service:
-                future_wait_time += est_work_load[server_idLabel]
-            return cur_wait_time + cur_server_wait_time + future_wait_time
-        elif self.patients[patient_id].status == 'servicing' or self.patients[patient_id].status == 'requesting' or self.patients[patient_id].status == 'not_arrive':
-            future_wait_time = 0
-            for server_idLabel in remain_service:
-                future_wait_time += est_work_load[server_idLabel]
-            return cur_wait_time + future_wait_time
-
-    def getEstimatedRF(self, cur_wait_time):
-        """return RF_e(t)"""
-        remain_service = self.getRemainService()
-        queue_len = self.getQueueLen()
-        est_work_load = self.getEstWorkLoad(remain_service)
-        rf_num = 0
-        for i in range(self.n_patients):
-            total_est_wait_time = self.getPatientWaitTimeEst(i, cur_wait_time[i], remain_service[i], queue_len, est_work_load)
-            if total_est_wait_time > self.patients[i].acceptable_wait_time:
-                rf_num += 1
-        return rf_num / self.n_patients
-
-    def getRealRF(self, cur_wait_time):
-        """return RF_a(t)"""
-        rf_num = 0
-        for i in range(self.n_patients):
-            if cur_wait_time[i] > self.patients[i].acceptable_wait_time:
-                rf_num += 1
-        return rf_num / self.n_patients
-
-    def observeServerUtilization(self):
-        """return current utilization rate of each server"""
-        util_rate_list = []
-        for server in self.servers:
-            if server.service_end_time != 0:
-                if self.env.now < server.service_end_time:
-                    util_rate = server.service_time / server.service_end_time
-                else: util_rate = server.service_time / self.env.now
-            else: util_rate = 0
-            util_rate_list.append(util_rate)
-        return util_rate_list
-
     def isDone(self):
         """return whether the episode is done or not"""
         completeness = pd.DataFrame()
@@ -298,16 +185,16 @@ class Environment:
 
     def observe(self):
         """map state into feature vector, return tensor"""
+        cal = Cal(self.env.now, self.patients, self.servers, self.resources, self.avg_service_time, self.server_capacity)
         feature_vector = []
-        util_rate = self.observeServerUtilization()
+        util_rate = cal.util_rate_list
         U_avg = np.mean(util_rate)
         U_std = np.std(util_rate)
-        completion = self.observeCompleteness()
+        completion = cal.completion_rate
         C_avg = np.mean(completion)
         C_std = np.std(completion)
-        wait_time = self.getWaitTime()
-        RF_a = self.getRealRF(wait_time)
-        RF_e = self.getEstimatedRF(wait_time)
+        RF_a = cal.RF_a
+        RF_e = cal.RF_e
         feature_vector.append(U_avg)
         feature_vector.append(U_std)
         feature_vector.append(C_avg)
@@ -316,18 +203,13 @@ class Environment:
         feature_vector.append(RF_e)
 
         completion = list(self.patients[self.requestPatient.idLabel - 1].service_completeness.values())
-        queue_len = []
-        for i, resource in enumerate(self.resources.values()):
-            queue_len.append(len(resource.queue) * self.servers[i].avg_service_time)
-        remain_service = self.getRemainService()
-        est_work_load = self.getEstWorkLoad(remain_service)
         observation = {'completion': completion,
-                       'queue_length': queue_len,
+                       'queue_length': cal.que_time,
                        'avg_service_time': list(self.avg_service_time.values()),
                        'RF_a': RF_a,
                        'RF_e': RF_e,
                        'U_avg': U_avg,
-                       'work_load': est_work_load
+                       'work_load': cal.est_work_load
                        }
         return feature_vector, observation
 
@@ -352,5 +234,3 @@ if __name__ == '__main__':
                 [i for i, v in enumerate(clinic_env.requestPatient.service_completeness.values()) if v != 0])
         except IndexError:
             print(patient_done)
-        print(clinic_env.observeCompleteness())
-        print(clinic_env.observeServerUtilization())
