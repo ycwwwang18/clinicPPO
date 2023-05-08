@@ -221,8 +221,9 @@ class Environment:
 
     def getRemainPatientNum(self,remain_service):
         """return the number of patients who still need service from the servers"""
-        remain_service = np.array(remain_service, dtype=object)
-        remain_service = list(remain_service.flatten())
+        # remain_service = np.array(remain_service, dtype=object)
+        # remain_service = list(remain_service.flatten())
+        remain_service = [item for lis in remain_service for item in lis]  # 修复将二维list转为一维list的错误
         remain_patient_num = {}
         for server_id in self.resources.keys():
             remain_patient_num[server_id] = remain_service.count(server_id)
