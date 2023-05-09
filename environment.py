@@ -89,6 +89,7 @@ class Environment:
     def step(self, action, observation):
         """step action, return new observation and reward and done"""
         self.server = self.servers[action]
+        # print(f'request patient is {self.requestPatient.idLabel}, action is {self.server.idLabel}')
         while not self.requestServerEvent:
             try:
                 self.env.step()
@@ -131,33 +132,40 @@ class Environment:
             else:
                 self.requestServerEvent = True
                 self.requestPatient = patient
+            # print(f'request patient is {self.requestPatient.idLabel}')
             yield self.env.process(self.doService(self.env, patient))
             count += 1
 
     def doService(self, env, patient):
         """患者请求并进行一项服务"""
         # 第一个患者的第一项服务不停，后面都停
-        request_server = self.server.idLabel
-        patient.service_completeness[request_server] -= 1  # 标记该服务已经完成
+        request_server = self.server
+        request_server.status = 'servicing'
+        patient.service_completeness[request_server.idLabel] -= 1  # 标记该服务已经完成
         patient.status = 'waiting'
-        patient.wait_server = request_server
-        with self.resources[request_server].request() as rq:  # 请求服务
+        patient.wait_server = request_server.idLabel
+        with self.resources[request_server.idLabel].request() as rq:  # 请求服务
             yield rq  # 等待资源被释放
+            # print(f'patient {patient.idLabel} start being serviced by {request_server.idLabel} at time {self.env.now}')
             patient.status = 'servicing'
             patient.service_start_time = env.now
             if self.random_flag:
-                if self.server.avg_service_time < 10:
-                    random_service_duration = self.server.avg_service_time + np.random.uniform(-1,1)
+                if request_server.avg_service_time < 10:
+                    random_service_duration = request_server.avg_service_time + np.random.uniform(-1,1)
                 else:
-                    random_service_duration = self.server.avg_service_time + np.random.uniform(-5,5)
+                    random_service_duration = request_server.avg_service_time + np.random.uniform(-5,5)
             else:
-                random_service_duration = self.server.avg_service_time
+                random_service_duration = request_server.avg_service_time
             # print(f'average service duration: {self.server.avg_service_time}, random service duration: {random_service_duration}')
-            self.server.service_time += random_service_duration
-            self.server.service_end_time = patient.service_start_time + random_service_duration
+            request_server.service_time += random_service_duration
+            request_server.service_end_time = patient.service_start_time + random_service_duration
             yield env.timeout(random_service_duration)  # 服务台提供服务
             patient.service_time += random_service_duration
             patient.status = 'requesting'
+            # print(f'patient {patient.idLabel} end service by {request_server.idLabel} at time {self.env.now}')
+            request_server.que_len = len(self.resources[request_server.idLabel].queue)
+            if len(self.resources[request_server.idLabel].queue) == 0:
+                request_server.status = 'idle'
 
     @staticmethod
     def reward(observation, observation_):

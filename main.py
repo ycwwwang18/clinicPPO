@@ -158,14 +158,17 @@ def plot_rewards(rewards, waiting_time, cfg, file_name, tag='train'):
 
 
 if __name__ == '__main__':
+
+    timestamp = '05091646'
+
     # 获取参数
-    cfg = Config(path='./config/05091407.json')
+    cfg = Config(path='./config/'+timestamp+'.json')
     # 训练
     env, agent = env_agent_config(cfg)
     best_agent, res_dic = train(cfg, env, agent)
 
-    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, '05091407', tag='train')
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, timestamp, tag='train')
 
     # 测试
     res_dic = test(cfg, env, agent)
-    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, '05091407', tag='test')
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, timestamp, tag='test')

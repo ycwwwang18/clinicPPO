@@ -24,7 +24,7 @@ class Agent:
         self.sample_count += 1  # one more env step
         state = torch.tensor(state, device=self.device, dtype=torch.float32).unsqueeze(dim=0)  # 在第0层增加一个维度
         probs = self.actor(state)
-        dist = Categorical(probs)  # the distribution of probs
+        dist = Categorical(probs)  # the distribution of probs, 离散分布
         action = dist.sample()  # sample from the distribution
         self.log_probs = dist.log_prob(action).detach()  # the log probability of the action
         return action.detach().cpu().numpy().item()
@@ -34,8 +34,9 @@ class Agent:
     def predict_action(self, state):
         state = torch.tensor(state, device=self.device, dtype=torch.float32).unsqueeze(dim=0)
         probs = self.actor(state)
-        dist = Categorical(probs)
-        action = dist.sample()
+        action = torch.argmax(probs)
+        # dist = Categorical(probs)
+        # action = dist.sample()
         return action.detach().cpu().numpy().item()
 
     def update(self):
@@ -63,7 +64,7 @@ class Agent:
         for _ in range(self.k_epochs):
             # compute advantage
             values = self.critic(old_states)  # detach to avoid backprop through the critic
-            advantage = returns - values.detach()
+            advantage = returns - values.detach()  # TODO：归一化了吗？
             # get new action probabilities through updated actor(policy)
             probs = self.actor(old_states)
             dist = Categorical(probs)
@@ -85,3 +86,13 @@ class Agent:
             self.actor_optimizer.step()
             self.critic_optimizer.step()
         self.memory.clear()
+
+    def save_model_state(self, output_dir):
+        torch.save(self.actor.state_dict(), output_dir+'_actor.ckpt')
+        torch.save(self.critic.state_dict(), output_dir + '_critic.ckpt')
+
+    def load_model_state(self, file: tuple):
+        self.actor.load_state_dict(torch.load(file[0]))
+        self.actor.eval()
+        self.critic.load_state_dict(torch.load(file[1]))
+        self.critic.eval()

@@ -15,11 +15,15 @@ class Server:
         self.acc_wait_time = acc_wait_time
         self.service_time = 0  # 该服务台的服务总时长
         self.service_end_time = 0  # 该服务台的预计服务结束时间
+        self.status = 'idle'  # 服务台的状态
+        self.que_len = 0  # 服务台的排队长
 
     def reset(self):
         # 重置服务台的状态
         self.service_time = 0
         self.service_end_time = 0
+        self.status = 'idle'
+        self.que_len = 0
 
 
 class Patient:

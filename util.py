@@ -62,10 +62,23 @@ class Cal:
 
     def getQueueTime(self):
         """return the queue time of all servers"""
-        que_time = []
+        que_times = []
+        i = 0
         for server_id, resource in self.resources.items():
-            que_time.append(len(resource.queue) * self.avg_service_time[server_id])
-        return que_time
+            server = self.servers[i]
+            if server.service_end_time < self.now:
+                queue_time = 0
+            elif server.service_end_time == self.now:
+                if len(resource.queue) != 0:  # 改成queue len
+                    queue_time = len(resource.queue) * self.avg_service_time[server_id] + self.avg_service_time[server_id]
+                else:
+                    queue_time = 0
+            else:
+                queue_time = len(resource.queue) * self.avg_service_time[server_id] + (server.service_end_time - self.now)
+
+            que_times.append(queue_time)
+            i += 1
+        return que_times
 
     def getRemainPatientNum(self):
         """return the number of patients who still need service from the servers"""
