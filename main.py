@@ -122,7 +122,7 @@ def all_seed(env, seed=1):
 
 
 def env_agent_config(cfg):
-    env = Environment(cfg.patient_path, cfg.server_path, cfg.avg_arrive_time)
+    env = Environment(cfg.patient_path, cfg.server_path, cfg.avg_arrive_time, random_flag=cfg.env_random)
     all_seed(env, seed=cfg.seed)
     agent = Agent(cfg)
     return env, agent
@@ -139,7 +139,7 @@ def smooth(data, weight=0.9):
     return smoothed
 
 
-def plot_rewards(rewards, waiting_time, cfg, tag='train'):
+def plot_rewards(rewards, waiting_time, cfg, file_name, tag='train'):
     """画图"""
     sns.set()
     plt.figure()  # 创建一个图形实例，方便同时多画几个图
@@ -149,18 +149,23 @@ def plot_rewards(rewards, waiting_time, cfg, tag='train'):
     plt.plot(waiting_time, label='waiting time')
     plt.plot(smooth(waiting_time), label='smoothed waiting time')
     plt.legend()
+    path = './results/' + file_name + '/'
+    if not os.path.exists(path):
+        os.mkdir(path)
+    full_path = './results/' + file_name + '/' + tag + '.png'
+    plt.savefig(full_path, dpi=600)
     plt.show()
 
 
 if __name__ == '__main__':
     # 获取参数
-    cfg = Config(path='./config/05081341.json')
+    cfg = Config(path='./config/05091407.json')
     # 训练
     env, agent = env_agent_config(cfg)
-    best_agent, res_dic = train(cfg, env, agent)  # TODO 不一定是best
+    best_agent, res_dic = train(cfg, env, agent)
 
-    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, tag='train')
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, '05091407', tag='train')
 
     # 测试
-    res_dic = test(cfg, env, agent)  # TODO best_agent替换为agent
-    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, tag='test')
+    res_dic = test(cfg, env, agent)
+    plot_rewards(res_dic['rewards'], res_dic['waiting_times'], cfg, '05091407', tag='test')

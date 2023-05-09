@@ -9,7 +9,7 @@ from util import Cal
 class Environment:
     """产科门诊仿真环境"""
 
-    def __init__(self, patient_path, server_path, avg_arrive_time, observe_flag=0):
+    def __init__(self, patient_path, server_path, avg_arrive_time, random_flag=False):
         # 生成数据
         self.acceptable_wait_time = []
         self.avg_service_time = {}
@@ -22,7 +22,7 @@ class Environment:
         self.requestPatient = None
         self.server = None
         self.done = False
-        self.observe_flag = observe_flag
+        self.random_flag = random_flag
 
         self.n_observe = 6
 
@@ -96,7 +96,8 @@ class Environment:
                 break
         self.requestServerEvent = False
         feature_vector_, observation_ = self.observe()
-        reward = self.reward(observation, observation_)
+        # reward = self.reward(observation, observation_)
+        reward = self.reward_(observation, action)
         done = self.isDone()
         return feature_vector_, reward, done, observation_
 
@@ -109,7 +110,10 @@ class Environment:
                 self.requestPatient = patient
             self.env.process(self.doServicePath(patient))
             # 患者到达事件
-            random_arrival_duration = self.avg_arrive_time + np.random.uniform(-1, 1)
+            if self.random_flag:
+                random_arrival_duration = self.avg_arrive_time + np.random.uniform(-1, 1)
+            else:
+                random_arrival_duration = self.avg_arrive_time
             # print(f'random arrival duration: {random_arrival_duration}')
             new_patient_arrive = self.env.timeout(delay=random_arrival_duration)
             # print(f"患者{patient.idLabel}在{self.env.now}到达产科门诊")
@@ -141,11 +145,13 @@ class Environment:
             yield rq  # 等待资源被释放
             patient.status = 'servicing'
             patient.service_start_time = env.now
-            if self.server.avg_service_time < 10:
-                random_service_duration = self.server.avg_service_time + np.random.uniform(-1,1)
+            if self.random_flag:
+                if self.server.avg_service_time < 10:
+                    random_service_duration = self.server.avg_service_time + np.random.uniform(-1,1)
+                else:
+                    random_service_duration = self.server.avg_service_time + np.random.uniform(-5,5)
             else:
-                random_service_duration = self.server.avg_service_time + np.random.uniform(-5,5)
-            # random_service_duration = self.server.avg_service_time
+                random_service_duration = self.server.avg_service_time
             # print(f'average service duration: {self.server.avg_service_time}, random service duration: {random_service_duration}')
             self.server.service_time += random_service_duration
             self.server.service_end_time = patient.service_start_time + random_service_duration
@@ -172,6 +178,11 @@ class Environment:
             return 0
         else:
             return -1
+
+    @staticmethod
+    def reward_(observation, action):
+        queue_time = observation['queue_length']
+        return -queue_time[action]
 
     def isDone(self):
         """return whether the episode is done or not"""

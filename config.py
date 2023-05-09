@@ -5,6 +5,7 @@ class Config:
     def __init__(self, path=None) -> None:
         if path is None:
             self.env_name = "Clinic"  # 环境名字
+            self.env_random = False
             self.new_step_api = False  # 是否用gym的新api
             self.algo_name = "PPO"  # 算法名字
             self.mode = "train"  # train or test
@@ -38,6 +39,7 @@ class Config:
         """将参数配置导出为json文件"""
         config = {
             "env_name": self.env_name,
+            "env_random": self.env_random,
             "new_step_api": self.new_step_api,
             "algo_name": self.algo_name,
             "mode": self.mode,
@@ -69,6 +71,7 @@ class Config:
         f = open(path, 'r')
         config = json.load(f)
         self.env_name = config['env_name']
+        self.env_random = config['env_random']
         self.new_step_api = config['new_step_api']
         self.algo_name = config['algo_name']
         self.mode = config['mode']
