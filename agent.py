@@ -39,34 +39,40 @@ class Agent:
         # action = dist.sample()
         return action.detach().cpu().numpy().item()
 
-    def update(self):
-        # update policy every n steps (action step), n = self.update_freq
-        if self.sample_count % self.update_freq != 0:
-            return
+    @staticmethod
+    def compute_gae(next_value, rewards, dones, values, gamma=0.99, tau=0.95):
+        """compute the actual discounted rewards through GAE"""
+        values = values + [next_value]
+        gae = 0
+        returns = []
+        for step in reversed(range(len(rewards))):
+            delta = rewards[step] + gamma * values[step + 1] * (1-dones[step]) - values[step]
+            gae = delta + gamma * tau * (1-dones[step]) * gae
+            returns.insert(0, gae + values[step])
+        return returns
+
+    def update(self, final_state):
         old_states, old_actions, old_log_probs, old_rewards, old_dones = self.memory.sample()  # 只采样一次，采样全部的transition
         # convert to tensor
         old_states = torch.tensor(np.array(old_states), device=self.device, dtype=torch.float32)
         old_actions = torch.tensor(np.array(old_actions), device=self.device, dtype=torch.float32)
         old_log_probs = torch.tensor(np.array(old_log_probs), device=self.device, dtype=torch.float32)
-        # monte carlo estimate of state values(returns)
-        returns = []
-        discounted_sum = 0
-        # TODO 改成GAE
-        for reward, done in zip(reversed(old_rewards), reversed(old_dones)):
-            if done:
-                discounted_sum = 0
-            discounted_sum = reward + (self.gamma * discounted_sum)
-            returns.insert(0, discounted_sum)
-        # Normalizing the returns:
-        returns = torch.tensor(returns, device=self.device, dtype=torch.float32)
-        returns = (returns - returns.mean()) / (returns.std() + 1e-5)  # 1e-5 to avoid division by zero
+
+        # compute the advantages
+        old_values = self.critic(old_states)
+        old_values = old_values.squeeze(dim=1).detach().cpu().numpy().tolist()
+        final_state = torch.FloatTensor(final_state).to(self.device)
+        final_value = self.critic(final_state)
+        returns = self.compute_gae(final_value.detach().cpu().numpy().item(), old_rewards, old_dones, old_values)
+
+        returns = torch.tensor(np.array(returns), device=self.device, dtype=torch.float32)
+        values = torch.tensor(np.array(old_values), device=self.device, dtype=torch.float32)
+        advantage = returns - values
+        advantage = (advantage - advantage.mean()) / (advantage.std() + 1e-5)  # normalizing, 1e-5 to avoid division by zero
 
         # update policy for K epochs
         for _ in range(self.k_epochs):
-            # compute advantage
-            values = self.critic(old_states)  # detach to avoid backprop through the critic
-            advantage = returns - values.detach()  # TODO：归一化了吗？
-            # get new action probabilities through updated actor(policy)
+            values = self.critic(old_states)
             probs = self.actor(old_states)
             dist = Categorical(probs)
             new_probs = dist.log_prob(old_actions)

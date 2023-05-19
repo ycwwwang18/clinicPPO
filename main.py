@@ -26,6 +26,7 @@ def train(cfg, env, agent):
         feature_vector, state = env.reset()
         done = False
         final_state = {}
+        final_feature = []
         while not done:
             ep_step += 1
             action = agent.sample_action(feature_vector)
@@ -35,9 +36,10 @@ def train(cfg, env, agent):
             agent.memory.push((feature_vector, action, agent.log_probs.detach().cpu().numpy().item(), reward, done))
             state = state_
             feature_vector = feature_vector_
-            agent.update()
+            # agent.update()
             ep_reward += reward
             final_state = state_
+            final_feature = feature_vector_
 
         # evaluate the model during training
         '''
@@ -63,7 +65,7 @@ def train(cfg, env, agent):
                 output_agent = copy.deepcopy(agent)  # snapshot of the best performance of the agent
             print(f'回合：{i_ep+1}/{cfg.train_eps}，奖励：{ep_reward:.2f}，评估奖励：{mean_eval_reward:.2f}，最佳评估奖励：{best_ep_reward:.2f}')
         '''
-
+        agent.update(final_feature)
         print(
             f"回合：{i_ep + 1}/{cfg.train_eps}，奖励：{ep_reward:.2f}，等待时间：{final_state['total_waiting_time']:.2f}")
         total_waiting_times.append(final_state['total_waiting_time'])
