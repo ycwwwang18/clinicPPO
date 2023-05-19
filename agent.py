@@ -43,7 +43,7 @@ class Agent:
         # update policy every n steps (action step), n = self.update_freq
         if self.sample_count % self.update_freq != 0:
             return
-        old_states, old_actions, old_log_probs, old_rewards, old_dones = self.memory.sample()  # TODO：只采样一次，采样全部的transition
+        old_states, old_actions, old_log_probs, old_rewards, old_dones = self.memory.sample()  # 只采样一次，采样全部的transition
         # convert to tensor
         old_states = torch.tensor(np.array(old_states), device=self.device, dtype=torch.float32)
         old_actions = torch.tensor(np.array(old_actions), device=self.device, dtype=torch.float32)
@@ -51,6 +51,7 @@ class Agent:
         # monte carlo estimate of state values(returns)
         returns = []
         discounted_sum = 0
+        # TODO 改成GAE
         for reward, done in zip(reversed(old_rewards), reversed(old_dones)):
             if done:
                 discounted_sum = 0

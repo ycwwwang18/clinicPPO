@@ -117,7 +117,7 @@ class Environment:
                 random_arrival_duration = self.avg_arrive_time
             # print(f'random arrival duration: {random_arrival_duration}')
             new_patient_arrive = self.env.timeout(delay=random_arrival_duration)
-            # print(f"患者{patient.idLabel}在{self.env.now}到达产科门诊")
+            # print(f"patient{patient.idLabel} arrive the clinic at {self.env.now}")
             yield new_patient_arrive
 
     def doServicePath(self, patient):
@@ -146,7 +146,7 @@ class Environment:
         patient.wait_server = request_server.idLabel
         with self.resources[request_server.idLabel].request() as rq:  # 请求服务
             yield rq  # 等待资源被释放
-            # print(f'patient {patient.idLabel} start being serviced by {request_server.idLabel} at time {self.env.now}')
+            # print(f'patient {patient.idLabel} start being serviced by {self.server.idLabel} at time {self.env.now}')
             patient.status = 'servicing'
             patient.service_start_time = env.now
             if self.random_flag:

@@ -159,7 +159,7 @@ def plot_rewards(rewards, waiting_time, cfg, file_name, tag='train'):
 
 if __name__ == '__main__':
 
-    timestamp = '05091646'
+    timestamp = '05142214'
 
     # 获取参数
     cfg = Config(path='./config/'+timestamp+'.json')

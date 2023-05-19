@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Cal:
     def __init__(self, now, patients, servers, resources, avg_service_time, server_capacity):
         self.now = now
@@ -20,6 +23,7 @@ class Cal:
         self.RF_e = self.getEstimatedRF()
         self.RF_a = self.getRealRF()
         self.util_rate_list = self.observeServerUtilization()
+        self.cur_wait_time_norm = self.normWaitTime()
 
     def getRemainService(self):
         """get the remaining services of all patients"""
@@ -62,6 +66,14 @@ class Cal:
 
     def getQueueTime(self):
         """return the queue time of all servers"""
+        que_time = []
+        for server_id, resource in self.resources.items():
+            que_time.append(len(resource.queue) * self.avg_service_time[server_id])
+        return que_time
+
+    '''
+    def getQueueTime(self):
+        """return the queue time of all servers"""
         que_times = []
         i = 0
         for server_id, resource in self.resources.items():
@@ -75,10 +87,10 @@ class Cal:
                     queue_time = 0
             else:
                 queue_time = len(resource.queue) * self.avg_service_time[server_id] + (server.service_end_time - self.now)
-
             que_times.append(queue_time)
             i += 1
         return que_times
+    '''
 
     def getRemainPatientNum(self):
         """return the number of patients who still need service from the servers"""
@@ -112,7 +124,7 @@ class Cal:
         elif self.patients[patient_id].status == 'servicing' or self.patients[patient_id].status == 'requesting' or self.patients[patient_id].status == 'not_arrive':
             future_wait_time = 0
             for server_idLabel in remain_service:
-                future_wait_time += self.est_work_load[server_idLabel] / 2  # / self.remain_patient_num[server_idLabel]
+                future_wait_time += self.est_work_load[server_idLabel] / 4  # / self.remain_patient_num[server_idLabel]
             return cur_wait_time + future_wait_time
 
     def getEstWaitTime(self):
@@ -151,3 +163,9 @@ class Cal:
                 util_rate = 0
             util_rate_list.append(util_rate)
         return util_rate_list
+
+    def normWaitTime(self):
+        """normalize the current waiting time of all patients"""
+        cur_wait_time = np.array(self.cur_wait_time)
+        cur_wait_time = (cur_wait_time - cur_wait_time.mean()) / (cur_wait_time.std() + 1e-5)
+        return cur_wait_time
